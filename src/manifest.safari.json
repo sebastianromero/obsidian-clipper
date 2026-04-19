@@ -2,12 +2,13 @@
 	"manifest_version": 3,
 	"name": "Obsidian Web Clipper",
 	"homepage_url": "https://obsidian.md/",
-	"version": "1.2.1",
+	"version": "1.5.1",
 	"description": "Save content from the web to Obsidian, in a private and durable format you can always access offline.",
 	"permissions": [
 		"activeTab",
 		"clipboardWrite",
 		"contextMenus",
+		"nativeMessaging",
 		"storage",
 		"scripting"
 	],
@@ -38,13 +39,12 @@
 	"content_scripts": [
 		{
 			"matches": ["http://*/*", "https://*/*"],
-			"js": ["browser-polyfill.min.js", "content.js"],
-			"css": ["highlighter.css"]
+			"js": ["browser-polyfill.min.js", "content.js"]
 		}
 	],
 	"web_accessible_resources": [
 		{
-			"resources": ["reader.css", "reader-script.js", "browser-polyfill.min.js", "style.css", "side-panel.html", "flatten-shadow-dom.js"],
+			"resources": ["reader.css", "reader-script.js", "browser-polyfill.min.js", "style.css", "side-panel.html", "flatten-shadow-dom.js", "highlighter.css"],
 			"extension_ids": ["*"],
 			"matches": [ "*://*/*" ]
 		}
@@ -79,7 +79,7 @@
 				"default": "Alt+Shift+R",
 				"mac": "Alt+Shift+R"
 			},
-			"description": "Toggle reader mode"
+			"description": "Toggle reading view"
 		}
 	}
 }

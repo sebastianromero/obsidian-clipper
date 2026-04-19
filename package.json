@@ -1,4 +1,7 @@
 {
+	"name": "obsidian-clipper",
+	"version": "1.5.1",
+	"description": "Official web clipper for Obsidian.",
 	"bin": {
 		"obsidian-clipper": "./dist/cli.cjs"
 	},
@@ -35,33 +38,14 @@
 		"webpack-cli": "^5.1.4",
 		"zip-webpack-plugin": "^4.0.1"
 	},
-	"exports": {
-		".": "./dist/cli.cjs",
-		"./api": "./dist/api.mjs"
-	},
-	"files": [
-		"dist"
-	],
-	"name": "obsidian-clipper",
-	"scripts": {
-		"add-locale": "ts-node --project scripts/tsconfig.json scripts/add-locale.ts",
-		"build": "npm run build:chrome && npm run build:firefox && npm run build:safari",
-		"build:api": "node scripts/build-api.mjs",
-		"build:chrome": "webpack --env BROWSER=chrome --mode production",
-		"build:cli": "node scripts/build-cli.mjs",
-		"build:firefox": "webpack --env BROWSER=firefox --mode production",
-		"build:safari": "webpack --env BROWSER=safari --mode production",
-		"check-strings": "ts-node --project scripts/tsconfig.json scripts/check-unused-strings.ts",
-		"defuddle-dev": "node scripts/set-defuddle-dev.js",
-		"defuddle-prod": "node scripts/set-defuddle-prod.js",
-		"dev": "npm run dev:chrome",
-		"dev:chrome": "webpack --watch --env BROWSER=chrome --mode development",
-		"dev:firefox": "webpack --watch --env BROWSER=firefox --mode development",
-		"dev:safari": "webpack --watch --env BROWSER=safari --mode development",
-		"prepublishOnly": "npm run build:cli && npm run build:api",
-		"test": "vitest run",
-		"test:watch": "vitest",
-		"update-locales": "ts-node --project scripts/tsconfig.json scripts/update-locales.ts"
-	},
-	"version": "1.2.1"
+	"dependencies": {
+		"@types/safari-extension": "^0.0.33",
+		"dayjs": "^1.11.13",
+		"defuddle": "^0.17.0",
+		"dompurify": "^3.0.9",
+		"highlight.js": "^11.11.1",
+		"linkedom": "^0.18.0",
+		"lucide": "^0.359.0",
+		"lz-string": "^1.5.0"
+	}
 }

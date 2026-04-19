@@ -1,40 +1,32 @@
 import browser from './utils/browser-polyfill';
 import * as highlighter from './utils/highlighter';
 import { loadSettings, generalSettings } from './utils/storage-utils';
-import Defuddle from 'defuddle';
 import { getDomain } from './utils/string-utils';
 import { extractContentBySelector as extractContentBySelectorShared } from './utils/shared';
+import Defuddle from 'defuddle';
 import { createMarkdownContent } from 'defuddle/full';
 import { flattenShadowDom } from './utils/flatten-shadow-dom';
+import { saveFile } from './utils/file-utils';
+import { debugLog } from './utils/debug';
+import { updateSidebarWidth, addResizeHandle, cleanupResizeHandlers } from './utils/iframe-resize';
+import { parseForClip } from './utils/clip-utils';
 
 declare global {
 	interface Window {
-		obsidianClipperRuntimeCheck?: () => string | undefined;
+		obsidianClipperGeneration?: number;
 	}
 }
 
 // IIFE to scope variables and allow safe re-execution
 (function() {
-	// Prevent duplicate initialization on the same page. After an extension
-	// update the previous content script's runtime context is invalidated,
-	// but window-level flags persist. We detect this by calling a function
-	// stored during the last initialization — it closes over that script's
-	// `browser` reference, so it will return undefined (or throw) once the
-	// old context is gone.
-	try {
-		const runtimeId = window.obsidianClipperRuntimeCheck?.();
-		console.log('[Obsidian Clipper] Re-init guard: runtimeCheck returned', runtimeId);
-		if (runtimeId) {
-			console.log('[Obsidian Clipper] Previous runtime still alive, skipping init');
-			return;
-		}
-	} catch (e) {
-		console.log('[Obsidian Clipper] Previous runtime threw, re-initializing', e);
-	}
+	// Bump the generation counter on every injection. Older listeners close
+	// over their own generation value and bail out when they see a newer one,
+	// so a zombie content script (runtime invalidated after extension update)
+	// will silently yield to the freshly-injected instance.
+	window.obsidianClipperGeneration = (window.obsidianClipperGeneration ?? 0) + 1;
+	const myGeneration = window.obsidianClipperGeneration;
 
-	console.log('[Obsidian Clipper] Initializing content script');
-
-	window.obsidianClipperRuntimeCheck = () => browser.runtime?.id;
+	debugLog('Clipper', 'Initializing content script, generation', myGeneration);
 
 	let isHighlighterMode = false;
 	const iframeId = 'obsidian-clipper-iframe';
@@ -42,8 +34,11 @@ declare global {
 
 	function removeContainer(container: HTMLElement) {
 		container.classList.add('is-closing');
+		updateSidebarWidth(document, null);
+		cleanupResizeHandlers(document);
 		container.addEventListener('animationend', () => {
 			container.remove();
+			highlighter.repositionHighlights();
 		}, { once: true });
 	}
 
@@ -53,6 +48,8 @@ declare global {
 			removeContainer(existingContainer);
 			return;
 		}
+
+		await ensureHighlighterCSS();
 
 		const container = document.createElement('div');
 		container.id = containerId;
@@ -71,96 +68,17 @@ declare global {
 		iframe.src = browser.runtime.getURL('side-panel.html?context=iframe');
 		container.appendChild(iframe);
 
-		// Add resize handle (left side only)
-		const handle = document.createElement('div');
-		handle.className = `obsidian-clipper-resize-handle obsidian-clipper-resize-handle-w`;
-		container.appendChild(handle);
-		addResizeListener(container, handle, 'w');
-
-		const southHandle = document.createElement('div');
-		southHandle.className = `obsidian-clipper-resize-handle obsidian-clipper-resize-handle-s`;
-		container.appendChild(southHandle);
-		addResizeListener(container, southHandle, 's');
-
-		const southWestHandle = document.createElement('div');
-		southWestHandle.className = 'obsidian-clipper-resize-handle obsidian-clipper-resize-handle-sw';
-		container.appendChild(southWestHandle);
-		addResizeListener(container, southWestHandle, 'sw');
+		const resizeCallbacks = {
+			onResize: () => highlighter.repositionHighlights(),
+			onResizeEnd: () => highlighter.repositionHighlights(),
+		};
+		addResizeHandle(document, container, 'w', resizeCallbacks);
+		addResizeHandle(document, container, 's', resizeCallbacks);
+		addResizeHandle(document, container, 'sw', resizeCallbacks);
 
 		document.body.appendChild(container);
-	}
-
-	function addResizeListener(container: HTMLElement, handle: HTMLElement, direction: string) {
-		let isResizing = false;
-		let startX: number, startY: number, startWidth: number, startHeight: number, startLeft: number, startTop: number;
-	
-		handle.onmousedown = (e) => {
-			e.stopPropagation();
-			isResizing = true;
-			startX = e.clientX;
-			startY = e.clientY;
-			startWidth = container.offsetWidth;
-			startHeight = container.offsetHeight;
-			startLeft = container.offsetLeft;
-			startTop = container.offsetTop;
-
-			document.body.style.cursor = window.getComputedStyle(handle).cursor;
-	
-			const iframe = container.querySelector('#obsidian-clipper-iframe');
-			if (iframe) iframe.classList.add('is-resizing');
-	
-			document.onmousemove = (moveEvent) => {
-				if (!isResizing) return;
-	
-				const dx = moveEvent.clientX - startX;
-				const dy = moveEvent.clientY - startY;
-
-				const minWidth = parseInt(container.style.minWidth) || 200;
-				const minHeight = parseInt(container.style.minHeight) || 200;
-	
-				if (direction.includes('e')) {
-					let newWidth = startWidth + dx;
-					if (newWidth < minWidth) newWidth = minWidth;
-					container.style.width = `${newWidth}px`;
-				}
-				if (direction.includes('w')) {
-					let newWidth = startWidth - dx;
-					if (newWidth < minWidth) {
-						newWidth = minWidth;
-					}
-					container.style.width = `${newWidth}px`;
-				}
-				if (direction.includes('s')) {
-					let newHeight = startHeight + dy;
-					if (newHeight < minHeight) newHeight = minHeight;
-					container.style.height = `${newHeight}px`;
-				}
-				if (direction.includes('n')) {
-					let newHeight = startHeight - dy;
-					let newTop = startTop + dy;
-					if (newHeight < minHeight) {
-						newHeight = minHeight;
-						newTop = startTop + startHeight - minHeight;
-					}
-					container.style.height = `${newHeight}px`;
-					container.style.top = `${newTop}px`;
-				}
-			};
-	
-			document.onmouseup = () => {
-				isResizing = false;
-				const iframe = container.querySelector('#obsidian-clipper-iframe');
-				if (iframe) iframe.classList.remove('is-resizing');
-				document.body.style.cursor = '';
-				
-				const newWidth = container.offsetWidth;
-				const newHeight = container.offsetHeight;
-				browser.storage.local.set({ clipperIframeWidth: newWidth, clipperIframeHeight: newHeight });
-
-				document.onmousemove = null;
-				document.onmouseup = null;
-			};
-		};
+		updateSidebarWidth(document, container);
+		container.addEventListener('animationend', () => highlighter.repositionHighlights(), { once: true });
 	}
 
 	// Firefox
@@ -188,6 +106,12 @@ declare global {
 	}
 
 	browser.runtime.onMessage.addListener((request: any, sender, sendResponse) => {
+		// If a newer generation of this content script has been injected,
+		// yield to it rather than responding from a potentially stale context.
+		if (window.obsidianClipperGeneration !== myGeneration) {
+			return;
+		}
+
 		if (request.action === "ping") {
 			sendResponse({});
 			return true;
@@ -226,8 +150,7 @@ declare global {
 		if (request.action === "copyMarkdownToClipboard") {
 			flattenShadowDom(document).then(() => {
 				try {
-					// Extract page content using Defuddle
-					const defuddled = new Defuddle(document, { url: document.URL }).parse();
+					const defuddled = parseForClip(document);
 
 					// Convert HTML content to markdown
 					const markdown = createMarkdownContent(defuddled.content, document.URL);
@@ -249,9 +172,31 @@ declare global {
 			return true;
 		}
 
+		if (request.action === "saveMarkdownToFile") {
+			flattenShadowDom(document).then(async () => {
+				try {
+					const defuddled = parseForClip(document);
+					const markdown = createMarkdownContent(defuddled.content, document.URL);
+					const title = defuddled.title || document.title || 'Untitled';
+					const fileName = title.replace(/[/\\?%*:|"<>]/g, '-');
+					await saveFile({
+						content: markdown,
+						fileName,
+						mimeType: 'text/markdown',
+					});
+					sendResponse({ success: true });
+				} catch (err) {
+					console.error('Failed to save markdown file:', err);
+					sendResponse({ success: false, error: (err as Error).message });
+				}
+			});
+			return true;
+		}
+
 		if (request.action === "getPageContent") {
 			// Flatten shadow DOM before extraction (async, needs main world)
-			flattenShadowDom(document).then(async () => {
+			const flattenTimeout = new Promise<void>(resolve => setTimeout(resolve, 3000));
+			Promise.race([flattenShadowDom(document), flattenTimeout]).then(async () => {
 				let selectedHtml = '';
 				const selection = window.getSelection();
 
@@ -263,9 +208,14 @@ declare global {
 					selectedHtml = div.innerHTML;
 				}
 
-				// Use parseAsync to ensure async variables like {{transcript}} are available
+				// Use parseAsync to ensure async variables like {{transcript}} are available.
+				// If it hangs (e.g. another extension has corrupted fetch), fall back to sync parse.
 				const defuddle = new Defuddle(document, { url: document.URL });
-				const defuddled = await defuddle.parseAsync();
+				const parseTimeout = new Promise<never>((_, reject) =>
+					setTimeout(() => reject(new Error('parseAsync timeout')), 8000)
+				);
+				const defuddled = await Promise.race([defuddle.parseAsync(), parseTimeout])
+					.catch(() => defuddle.parse());
 				const extractedContent: { [key: string]: string } = {
 					...defuddled.variables,
 				};
@@ -332,14 +282,21 @@ declare global {
 					wordCount: defuddled.wordCount,
 					metaTags: defuddled.metaTags || []
 				};
+				if (defuddled.title) {
+					highlighter.setPageTitle(defuddled.title);
+				}
+				highlighter.updatePageDomainSettings({ site: defuddled.site, favicon: defuddled.favicon });
 				sendResponse(response);
+			}).catch((error: unknown) => {
+				console.error('[Obsidian Clipper] getPageContent error:', error);
+				sendResponse({ success: false, error: error instanceof Error ? error.message : String(error) });
 			});
 			return true;
 		} else if (request.action === "extractContent") {
 			const content = extractContentBySelector(request.selector, request.attribute, request.extractHtml);
 			sendResponse({ content: content });
 		} else if (request.action === "paintHighlights") {
-			highlighter.loadHighlights().then(() => {
+			ensureHighlighterCSS().then(() => highlighter.loadHighlights()).then(() => {
 				if (generalSettings.alwaysShowHighlights) {
 					highlighter.applyHighlights();
 				}
@@ -348,6 +305,7 @@ declare global {
 			return true;
 		} else if (request.action === "setHighlighterMode") {
 			isHighlighterMode = request.isActive;
+			ensureHighlighterCSS();
 			highlighter.toggleHighlighterMenu(isHighlighterMode);
 			updateHasHighlights();
 			sendResponse({ success: true });
@@ -356,10 +314,12 @@ declare global {
 			browser.runtime.sendMessage({ action: "getHighlighterMode" }).then(sendResponse);
 			return true;
 		} else if (request.action === "toggleHighlighter") {
+			ensureHighlighterCSS();
 			highlighter.toggleHighlighterMenu(request.isActive);
 			updateHasHighlights();
 			sendResponse({ success: true });
 		} else if (request.action === "highlightSelection") {
+			ensureHighlighterCSS();
 			highlighter.toggleHighlighterMenu(request.isActive);
 			const selection = window.getSelection();
 			if (selection && !selection.isCollapsed) {
@@ -368,6 +328,7 @@ declare global {
 			updateHasHighlights();
 			sendResponse({ success: true });
 		} else if (request.action === "highlightElement") {
+			ensureHighlighterCSS();
 			highlighter.toggleHighlighterMenu(request.isActive);
 			if (request.targetElementInfo) {
 				const { mediaType, srcUrl, pageUrl } = request.targetElementInfo;
@@ -426,14 +387,8 @@ declare global {
 					sendResponse({ isActive: false });
 				});
 			return true;
-		} else if (request.action === "toggleReaderMode") {
-			// Forward the request to the background script to inject reader mode if needed
-			browser.runtime.sendMessage({ action: "toggleReaderMode", tabId: sender.tab?.id })
-				.then(sendResponse)
-				.catch(error => {
-					console.error("Error toggling reader mode:", error);
-					sendResponse({ success: false, error: error instanceof Error ? error.message : 'Unknown error' });
-				});
+		} else if (request.action === "getReaderModeState") {
+			sendResponse({ isActive: document.documentElement.classList.contains('obsidian-reader-active') });
 			return true;
 		}
 		return true;
@@ -448,14 +403,34 @@ declare global {
 		browser.runtime.sendMessage({ action: "updateHasHighlights", hasHighlights });
 	}
 
+	let highlighterCSSPromise: Promise<void> | null = null;
+	function ensureHighlighterCSS(): Promise<void> {
+		if (!highlighterCSSPromise) {
+			highlighterCSSPromise = new Promise<void>((resolve) => {
+				const link = document.createElement('link');
+				link.rel = 'stylesheet';
+				link.href = browser.runtime.getURL('highlighter.css');
+				link.onload = () => resolve();
+				link.onerror = () => resolve();
+				(document.head || document.documentElement).appendChild(link);
+			});
+		}
+		return highlighterCSSPromise;
+	}
+
 	async function initializeHighlighter() {
 		await loadSettings();
-		await highlighter.loadHighlights();
-		
+
 		if (generalSettings.alwaysShowHighlights) {
-			highlighter.applyHighlights();
+			const result = await browser.storage.local.get('highlights');
+			const allHighlights = (result.highlights || {}) as Record<string, unknown>;
+			if (allHighlights[window.location.href]) {
+				await ensureHighlighterCSS();
+			}
 		}
-		
+
+		await highlighter.loadHighlights();
+		highlighter.setPageTitle(document.title);
 		updateHasHighlights();
 	}
 

@@ -26,6 +26,9 @@
 	"advanced": {
 		"message": "מתקדם"
 	},
+	"allHighlights": {
+		"message": "כל ההדגשות"
+	},
 	"allProperties": {
 		"message": "כל המאפיינים"
 	},
@@ -162,6 +165,15 @@
 	"delete": {
 		"message": "מחק"
 	},
+	"deleteAllHighlightsConfirm": {
+		"message": "האם אתה בטוח שברצונך למחוק את כל ההדגשות?"
+	},
+	"deleteHighlightsForDomain": {
+		"message": "למחוק את כל ההדגשות עבור דומיין זה?"
+	},
+	"deleteHighlightsForPage": {
+		"message": "למחוק את כל ההדגשות עבור דף זה?"
+	},
 	"deleteModelConfirm": {
 		"message": "האם את/ה בטוח/ה שברצונך למחוק מודל זה?"
 	},
@@ -197,6 +209,9 @@
 	"earlyAccessFeatures": {
 		"message": "תכונות גישה מוקדמת"
 	},
+	"edit": {
+		"message": "עריכה"
+	},
 	"editModel": {
 		"message": "ערוך מודל"
 	},
@@ -208,9 +223,6 @@
 	},
 	"embedded": {
 		"message": "משולב"
-	},
-	"enableHighlighter": {
-		"message": "הפעל מסמן"
 	},
 	"enableHighlighterDescription": {
 		"message": "סמן תוכן בדפי אינטרנט שניתן לשמור ב-Obsidian"
@@ -357,8 +369,17 @@
 	"highlighter": {
 		"message": "מסמן"
 	},
+	"highlighterOn": {
+		"message": "כלי הדגשה"
+	},
 	"highlighterSettings": {
 		"message": "הגדרות מסמן"
+	},
+	"highlights": {
+		"message": "הדגשות"
+	},
+	"highlightsNotFound": {
+		"message": "לא נמצאו הדגשות במאמר"
 	},
 	"history": {
 		"message": "היסטוריה"
@@ -445,6 +466,12 @@
 	"legacyModeDescription": {
 		"message": "שימוש בשיטת URI המתאימה ל-Obsidian 1.6.7 ומטה. שים/י לב שאורך התוכן מוגבל על ידי הדפדפן ומערכת ההפעלה. חלק מהדפים עלולים להיכשל ללא הודעת שגיאה."
 	},
+	"loadArticle": {
+		"message": "קרא מאמר"
+	},
+	"loading": {
+		"message": "טוען…"
+	},
 	"modelName": {
 		"message": "שם המודל"
 	},
@@ -477,6 +504,9 @@
 	},
 	"noHighlights": {
 		"message": "אל תעשה כלום"
+	},
+	"noResults": {
+		"message": "לא נמצאו תוצאות"
 	},
 	"noTemplates": {
 		"message": "אין תבניות זמינות. אנא הוסף תבנית בהגדרות."
@@ -523,6 +553,12 @@
 	"openEmbedded": {
 		"message": "פתח בעמוד"
 	},
+	"openHighlights": {
+		"message": "פתח הדגשות"
+	},
+	"openReader": {
+		"message": "פתח קורא"
+	},
 	"openSidePanel": {
 		"message": "פתח חלונית צדדית"
 	},
@@ -567,6 +603,9 @@
 	},
 	"prependToExisting": {
 		"message": "הוסף להערה קיימת, בחלק העליון"
+	},
+	"preview": {
+		"message": "תצוגה מקדימה"
 	},
 	"processing": {
 		"message": "מעבד"
@@ -649,6 +688,153 @@
 	"reader": {
 		"message": "קורא"
 	},
+	"readerAppearance": {
+		"message": "מראה"
+	},
+	"readerAppearanceAuto": {
+		"message": "אוטומטי"
+	},
+	"readerAppearanceDark": {
+		"message": "כהה"
+	},
+	"readerAppearanceDescription": {
+		"message": "בחרו מראה בהיר או כהה."
+	},
+	"readerAppearanceLight": {
+		"message": "בהיר"
+	},
+	"readerAutoScroll": {
+		"message": "גלילה אוטומטית"
+	},
+	"readerAutoScrollDescription": {
+		"message": "גלול אוטומטית את התמלול כדי לעקוב אחר ההשמעה."
+	},
+	"readerBlendImages": {
+		"message": "מיזוג תמונות"
+	},
+	"readerBlendImagesDescription": {
+		"message": "מזג תמונות עם רקע הדף."
+	},
+	"readerCloseImageViewer": {
+		"message": "סגור מציג תמונות"
+	},
+	"readerCollapseComment": {
+		"message": "כווץ תגובה"
+	},
+	"readerColorLinks": {
+		"message": "צבע קישורים"
+	},
+	"readerColorSchemeDefault": {
+		"message": "ברירת מחדל"
+	},
+	"readerCurrentPosition": {
+		"message": "מיקום נוכחי"
+	},
+	"readerCustomCss": {
+		"message": "CSS מותאם אישית"
+	},
+	"readerCustomCssDescription": {
+		"message": "CSS מוחל אוטומטית בתצוגת קריאה."
+	},
+	"readerDarkTheme": {
+		"message": "ערכת נושא למצב כהה"
+	},
+	"readerDarkThemeDescription": {
+		"message": "השתמשו בערכת נושא שונה במצב כהה."
+	},
+	"readerError": {
+		"message": "חילוץ התוכן נכשל."
+	},
+	"readerFont": {
+		"message": "אפשרויות גופן"
+	},
+	"readerFontDefault": {
+		"message": "ברירת מחדל"
+	},
+	"readerFontDescription": {
+		"message": "הוסיפו גופנים המותקנים במערכת שלכם. לחצו Enter כדי להוסיף גופן."
+	},
+	"readerFontNotFound": {
+		"message": "לא נמצא"
+	},
+	"readerFontPlaceholder": {
+		"message": "לחצו Enter כדי להוסיף גופן"
+	},
+	"readerFontSetDefault": {
+		"message": "הגדר כברירת מחדל"
+	},
+	"readerFontSize": {
+		"message": "גודל גופן בסיסי"
+	},
+	"readerFontSystem": {
+		"message": "מערכת"
+	},
+	"readerFontSystemSans": {
+		"message": "ללא תגים"
+	},
+	"readerFontSystemSerif": {
+		"message": "עם תגים"
+	},
+	"readerFonts": {
+		"message": "גופנים"
+	},
+	"readerFootnotes": {
+		"message": "הערות שוליים"
+	},
+	"readerHighlightActiveLine": {
+		"message": "הדגשת השורה הפעילה"
+	},
+	"readerHighlightActiveLineDescription": {
+		"message": "הדגש את המשפט הנוכחי בתמלול במהלך ההשמעה."
+	},
+	"readerImages": {
+		"message": "תמונות"
+	},
+	"readerLineHeight": {
+		"message": "גובה שורה"
+	},
+	"readerLineWidth": {
+		"message": "רוחב שורה"
+	},
+	"readerLoadFailed": {
+		"message": "הטעינה נכשלה. ייתכן שהדף נחסם על ידי הדפדפן שלך."
+	},
+	"readerLoading": {
+		"message": "מפענח…"
+	},
+	"readerOn": {
+		"message": "מצב קריאה"
+	},
+	"readerPinPlayer": {
+		"message": "נעיצת הנגן"
+	},
+	"readerPinPlayerDescription": {
+		"message": "השאר את נגן הווידאו גלוי בזמן גלילה בתמלול."
+	},
+	"readerSettings": {
+		"message": "הגדרות קורא"
+	},
+	"readerTheme": {
+		"message": "ערכת נושא"
+	},
+	"readerThemeDescription": {
+		"message": "בחרו את הצבעים המשמשים בתצוגת קריאה."
+	},
+	"readerThemeSection": {
+		"message": "ערכת נושא"
+	},
+	"readerTranscripts": {
+		"message": "תמלולים"
+	},
+	"readerTypography": {
+		"message": "טיפוגרפיה"
+	},
+	"readerUrlPlaceholder": {
+		"message": "הדבק כתובת URL לקריאה…"
+	},
+	"readerViewFullSize": {
+		"message": "הצג בגודל מלא"
+	},
 	"recommended": {
 		"message": "מומלץ"
 	},
@@ -699,6 +885,9 @@
 	},
 	"saveFile": {
 		"message": "שמור קובץ..."
+	},
+	"searchHighlightsPlaceholder": {
+		"message": "חפש בהדגשות…"
 	},
 	"searchVariables": {
 		"message": "חפש משתנים..."
@@ -760,11 +949,29 @@
 	"silentOpenDescription": {
 		"message": "פתקים שנגזרו יישמרו אך לא ייפתחו בכרטיסייה חדשה. Obsidian עדיין יועבר לחזית."
 	},
+	"sort": {
+		"message": "מיון"
+	},
+	"sortAZ": {
+		"message": "א׳ עד ת׳"
+	},
+	"sortNewOld": {
+		"message": "החדשות ביותר תחילה"
+	},
+	"sortOldNew": {
+		"message": "הישנות ביותר תחילה"
+	},
+	"sortZA": {
+		"message": "ת׳ עד א׳"
+	},
 	"specificNoteName": {
 		"message": "שם פתק ספציפי"
 	},
 	"systemDefault": {
 		"message": "ברירת מחדל של המערכת"
+	},
+	"template": {
+		"message": "תבנית"
 	},
 	"templateCopied": {
 		"message": "ה-JSON של התבנית הועתק ללוח"
@@ -777,6 +984,12 @@
 	},
 	"templateErrorsCount": {
 		"message": "יש $1 שגיאות בתבנית שלך."
+	},
+	"templateGroupContent": {
+		"message": "תוכן"
+	},
+	"templateGroupLocation": {
+		"message": "מיקום"
 	},
 	"templateName": {
 		"message": "שם התבנית"

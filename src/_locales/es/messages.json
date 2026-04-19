@@ -26,6 +26,9 @@
 	"advanced": {
 		"message": "Avanzado"
 	},
+	"allHighlights": {
+		"message": "Todos los resaltados"
+	},
 	"allProperties": {
 		"message": "Todas las propiedades"
 	},
@@ -162,6 +165,15 @@
 	"delete": {
 		"message": "Eliminar"
 	},
+	"deleteAllHighlightsConfirm": {
+		"message": "¿Seguro que quieres eliminar todos los resaltados?"
+	},
+	"deleteHighlightsForDomain": {
+		"message": "¿Eliminar todos los resaltados de este dominio?"
+	},
+	"deleteHighlightsForPage": {
+		"message": "¿Eliminar todos los resaltados de esta página?"
+	},
 	"deleteModelConfirm": {
 		"message": "¿Estás seguro de que quieres eliminar este modelo?"
 	},
@@ -197,6 +209,9 @@
 	"earlyAccessFeatures": {
 		"message": "Funciones de acceso anticipado"
 	},
+	"edit": {
+		"message": "Editar"
+	},
 	"editModel": {
 		"message": "Editar modelo"
 	},
@@ -208,9 +223,6 @@
 	},
 	"embedded": {
 		"message": "Incrustado"
-	},
-	"enableHighlighter": {
-		"message": "Activar resaltador"
 	},
 	"enableHighlighterDescription": {
 		"message": "Resalta contenido en páginas web que puedes guardar en Obsidian."
@@ -357,8 +369,17 @@
 	"highlighter": {
 		"message": "Resaltador"
 	},
+	"highlighterOn": {
+		"message": "Resaltador"
+	},
 	"highlighterSettings": {
 		"message": "Resaltador"
+	},
+	"highlights": {
+		"message": "Resaltados"
+	},
+	"highlightsNotFound": {
+		"message": "No se encontraron resaltados en el artículo"
 	},
 	"history": {
 		"message": "Historial"
@@ -445,6 +466,12 @@
 	"legacyModeDescription": {
 		"message": "Usa el método de guardado URI compatible con Obsidian 1.6.7 o anterior. Ten en cuenta que la longitud del contenido que puedes guardar está limitada por tu navegador y sistema operativo. Algunas páginas pueden fallar sin mostrar errores."
 	},
+	"loadArticle": {
+		"message": "Leer artículo"
+	},
+	"loading": {
+		"message": "Cargando…"
+	},
 	"modelName": {
 		"message": "Nombre del modelo"
 	},
@@ -477,6 +504,9 @@
 	},
 	"noHighlights": {
 		"message": "No hacer nada"
+	},
+	"noResults": {
+		"message": "No se encontraron resultados"
 	},
 	"noTemplates": {
 		"message": "No hay plantillas disponibles. Por favor, añade una plantilla en los ajustes."
@@ -531,6 +561,12 @@
 	"openEmbedded": {
 		"message": "Abrir en página"
 	},
+	"openHighlights": {
+		"message": "Abrir resaltados"
+	},
+	"openReader": {
+		"message": "Abrir lector"
+	},
 	"openSidePanel": {
 		"message": "Abrir panel lateral"
 	},
@@ -575,6 +611,9 @@
 	},
 	"prependToExisting": {
 		"message": "Agregar a una nota existente, al principio"
+	},
+	"preview": {
+		"message": "Vista previa"
 	},
 	"processing": {
 		"message": "procesando"
@@ -657,6 +696,153 @@
 	"reader": {
 		"message": "Lector"
 	},
+	"readerAppearance": {
+		"message": "Apariencia"
+	},
+	"readerAppearanceAuto": {
+		"message": "Automático"
+	},
+	"readerAppearanceDark": {
+		"message": "Oscuro"
+	},
+	"readerAppearanceDescription": {
+		"message": "Elige apariencia clara u oscura."
+	},
+	"readerAppearanceLight": {
+		"message": "Claro"
+	},
+	"readerAutoScroll": {
+		"message": "Desplazamiento automático"
+	},
+	"readerAutoScrollDescription": {
+		"message": "Desplaza automáticamente la transcripción para seguir la reproducción."
+	},
+	"readerBlendImages": {
+		"message": "Mezclar imágenes"
+	},
+	"readerBlendImagesDescription": {
+		"message": "Mezcla las imágenes con el fondo de la página."
+	},
+	"readerCloseImageViewer": {
+		"message": "Cerrar visor de imágenes"
+	},
+	"readerCollapseComment": {
+		"message": "Contraer comentario"
+	},
+	"readerColorLinks": {
+		"message": "Colorear enlaces"
+	},
+	"readerColorSchemeDefault": {
+		"message": "Predeterminado"
+	},
+	"readerCurrentPosition": {
+		"message": "Posición actual"
+	},
+	"readerCustomCss": {
+		"message": "CSS personalizado"
+	},
+	"readerCustomCssDescription": {
+		"message": "CSS aplicado automáticamente en la vista de lectura."
+	},
+	"readerDarkTheme": {
+		"message": "Tema del modo oscuro"
+	},
+	"readerDarkThemeDescription": {
+		"message": "Usa un tema diferente en el modo oscuro."
+	},
+	"readerError": {
+		"message": "No se pudo extraer el contenido."
+	},
+	"readerFont": {
+		"message": "Opciones de fuente"
+	},
+	"readerFontDefault": {
+		"message": "Predeterminado"
+	},
+	"readerFontDescription": {
+		"message": "Añade fuentes instaladas en tu sistema. Pulsa Intro para añadir una fuente."
+	},
+	"readerFontNotFound": {
+		"message": "No encontrado"
+	},
+	"readerFontPlaceholder": {
+		"message": "Pulsa Intro para añadir una fuente"
+	},
+	"readerFontSetDefault": {
+		"message": "Establecer como predeterminado"
+	},
+	"readerFontSize": {
+		"message": "Tamaño de fuente base"
+	},
+	"readerFontSystem": {
+		"message": "Sistema"
+	},
+	"readerFontSystemSans": {
+		"message": "Sans-serif"
+	},
+	"readerFontSystemSerif": {
+		"message": "Serif"
+	},
+	"readerFonts": {
+		"message": "Fuentes"
+	},
+	"readerFootnotes": {
+		"message": "Notas al pie"
+	},
+	"readerHighlightActiveLine": {
+		"message": "Resaltar línea activa"
+	},
+	"readerHighlightActiveLineDescription": {
+		"message": "Resalta la frase actual en la transcripción durante la reproducción."
+	},
+	"readerImages": {
+		"message": "Imágenes"
+	},
+	"readerLineHeight": {
+		"message": "Altura de línea"
+	},
+	"readerLineWidth": {
+		"message": "Ancho de línea"
+	},
+	"readerLoadFailed": {
+		"message": "No se pudo cargar. Es posible que tu navegador bloquee la página."
+	},
+	"readerLoading": {
+		"message": "Simplificando…"
+	},
+	"readerOn": {
+		"message": "Modo lectura"
+	},
+	"readerPinPlayer": {
+		"message": "Fijar reproductor"
+	},
+	"readerPinPlayerDescription": {
+		"message": "Mantén el reproductor de vídeo visible mientras te desplazas por la transcripción."
+	},
+	"readerSettings": {
+		"message": "Ajustes del lector"
+	},
+	"readerTheme": {
+		"message": "Tema"
+	},
+	"readerThemeDescription": {
+		"message": "Elige los colores usados en la vista de lectura."
+	},
+	"readerThemeSection": {
+		"message": "Tema"
+	},
+	"readerTranscripts": {
+		"message": "Transcripciones"
+	},
+	"readerTypography": {
+		"message": "Tipografía"
+	},
+	"readerUrlPlaceholder": {
+		"message": "Pega una URL para leer…"
+	},
+	"readerViewFullSize": {
+		"message": "Ver a tamaño completo"
+	},
 	"recommended": {
 		"message": "recomendado"
 	},
@@ -707,6 +893,9 @@
 	},
 	"saveFile": {
 		"message": "Guardar archivo..."
+	},
+	"searchHighlightsPlaceholder": {
+		"message": "Buscar resaltados…"
 	},
 	"searchVariables": {
 		"message": "Buscar variables..."
@@ -768,11 +957,29 @@
 	"silentOpenDescription": {
 		"message": "Las notas se guardarán pero no se abrirán en una nueva pestaña. Obsidian seguirá siendo traído al primer plano."
 	},
+	"sort": {
+		"message": "Ordenar"
+	},
+	"sortAZ": {
+		"message": "A a Z"
+	},
+	"sortNewOld": {
+		"message": "Más recientes primero"
+	},
+	"sortOldNew": {
+		"message": "Más antiguos primero"
+	},
+	"sortZA": {
+		"message": "Z a A"
+	},
 	"specificNoteName": {
 		"message": "Nombre específico de la nota"
 	},
 	"systemDefault": {
 		"message": "Sistema"
+	},
+	"template": {
+		"message": "Plantilla"
 	},
 	"templateCopied": {
 		"message": "Se copió el JSON de la plantilla al portapapeles"
@@ -785,6 +992,12 @@
 	},
 	"templateErrorsCount": {
 		"message": "Hay $1 errores en tu plantilla."
+	},
+	"templateGroupContent": {
+		"message": "Contenido"
+	},
+	"templateGroupLocation": {
+		"message": "Ubicación"
 	},
 	"templateName": {
 		"message": "Nombre de la plantilla"

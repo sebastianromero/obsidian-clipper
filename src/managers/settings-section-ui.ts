@@ -59,16 +59,25 @@ export function initializeSidebar(): void {
 	const settingsContainer = document.getElementById('settings');
 	const templateList = document.getElementById('template-list');
 	const hamburgerMenu = document.getElementById('hamburger-menu');
+	const sidebarTitle = document.getElementById('settings-sidebar-title');
+
+	if (sidebarTitle) {
+		sidebarTitle.addEventListener('click', () => {
+			showSettingsSection('general');
+		});
+	}
 
 	if (sidebar) {
-		sidebar.addEventListener('click', (event) => {	
+		sidebar.addEventListener('click', (event) => {
 			const target = event.target as HTMLElement;
-			if (target.dataset.section === 'general'
-				|| target.dataset.section === 'properties'
-				|| target.dataset.section === 'highlighter'
-				|| target.dataset.section === 'interpreter'
-				|| target.dataset.section === 'reader') {
-				showSettingsSection(target.dataset.section as 'general' | 'properties' | 'highlighter' | 'interpreter' | 'reader');
+			const li = target.closest('li[data-section]') as HTMLElement | null;
+			const section = li?.dataset.section;
+			if (section === 'general'
+				|| section === 'properties'
+				|| section === 'highlighter'
+				|| section === 'interpreter'
+				|| section === 'reader') {
+				showSettingsSection(section as 'general' | 'properties' | 'highlighter' | 'interpreter' | 'reader');
 			}
 			if (settingsContainer) {
 				settingsContainer.classList.remove('sidebar-open');
