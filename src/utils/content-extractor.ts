@@ -1,8 +1,12 @@
-import dayjs from "dayjs";
-import { createMarkdownContent } from "defuddle/full";
-import type { ExtractedContent } from "../types/types";
-import browser from "./browser-polyfill";
-import { debugLog } from "./debug";
+import { ExtractedContent } from '../types/types';
+import { createMarkdownContent } from 'defuddle/full';
+import { sanitizeFileName } from './string-utils';
+import { buildVariables, addSchemaOrgDataToVariables } from './shared';
+import browser from './browser-polyfill';
+import { debugLog } from './debug';
+import dayjs from 'dayjs';
+import { AnyHighlightData, TextHighlightData, HighlightData, collapseGroupsForExport } from './highlighter';
+import { generalSettings } from './storage-utils';
 import {
 	getElementByXPath,
 	wrapElementWithMark,
@@ -138,6 +142,10 @@ function stripHtml(html: string): string {
 	return doc.body.textContent || "";
 }
 
+function normalizeText(html: string): string {
+	return stripHtml(html).replace(/\s+/g, ' ').trim();
+}
+
 interface ContentResponse {
 	author: string;
 	content: string;
@@ -218,9 +226,10 @@ export async function extractPageContent(
 		return await sendExtractRequest(tabId);
 	} catch (firstError) {
 		// First attempt failed — this commonly happens on Safari after an
-		// extension update when the old content script context is invalidated.
-		// Retry once; the background script will re-inject if needed.
-		console.log('[Obsidian Clipper] First extraction attempt failed, retrying...', firstError);
+		// extension update when a zombie content script (runtime invalidated)
+		// responded to ping, preventing re-injection. Force a fresh injection
+		// so the new generation's listener takes over, then retry.
+		debugLog('Clipper', 'First extraction attempt failed, retrying...', firstError);
 		try {
 			return await sendExtractRequest(tabId);
 		} catch (retryError) {
@@ -300,34 +309,7 @@ export async function initializePageContent(
 			const placeholder = `PROTECTEDTABLEPLACEHOLDER${index}`;
 			const restoreHtml = `\n\n${tableHtml}\n\n`;
 
-			// Replace globally in both standard and selected markdown outputs
-			markdownBody = markdownBody.replace(
-				new RegExp(placeholder, "g"),
-				restoreHtml
-			);
-			if (selectedMarkdown) {
-				selectedMarkdown = selectedMarkdown.replace(
-					new RegExp(placeholder, "g"),
-					restoreHtml
-				);
-			}
-		});
-
-		// Prepare highlight data for Obsidian properties
-		const highlightsData = highlights.map((highlight) => {
-			const highlightData: {
-				text: string;
-				timestamp: string;
-				notes?: string[];
-			} = {
-				text: createMarkdownContent(highlight.content, currentUrl),
-				timestamp: dayjs(parseInt(highlight.id)).toISOString()
-			};
-			if (highlight.notes && highlight.notes.length > 0) {
-				highlightData.notes = highlight.notes;
-			}
-			return highlightData;
-		});
+		const highlightsData = collapseGroupsForExport(highlights, c => createMarkdownContent(c, currentUrl));
 
 		const noteName = sanitizeFileName(title);
 
@@ -470,20 +452,20 @@ function processXPathHighlight(
 		null
 	).singleNodeValue as Element;
 
-	if (!element) {
-		debugLog(
-			"Highlights",
-			"Could not find element for xpath:",
-			highlight.xpath
-		);
+	if (element) {
+		if (highlight.type === 'element') {
+			wrapElementWithMark(element);
+		} else {
+			wrapTextWithMark(element, highlight as TextHighlightData);
+		}
 		return;
 	}
 
-	if (highlight.type === "element") {
-		wrapElementWithMark(element);
-	} else {
-		wrapTextWithMark(element, highlight as TextHighlightData);
-	}
+	// Xpath didn't resolve (common when the highlight was created in a
+	// different mode — reader vs live — with a different DOM structure).
+	// Fall back to finding the highlight's text in the article content.
+	debugLog('Highlights', 'Xpath not found, falling back to text search:', highlight.xpath);
+	processContentBasedHighlight(highlight, tempDiv);
 }
 
 function processContentBasedHighlight(
@@ -495,13 +477,10 @@ function processContentBasedHighlight(
 	const contentDiv = doc.body;
 
 	const serializer = new XMLSerializer();
-	let innerContent = "";
+	let innerContent = '';
 
-	if (
-		contentDiv.children.length === 1 &&
-		contentDiv.firstElementChild?.tagName === "DIV"
-	) {
-		Array.from(contentDiv.firstElementChild.childNodes).forEach((node) => {
+	if (contentDiv.children.length === 1 && contentDiv.firstElementChild?.tagName === 'DIV') {
+		Array.from(contentDiv.firstElementChild.childNodes).forEach(node => {
 			if (node.nodeType === Node.ELEMENT_NODE) {
 				innerContent += serializer.serializeToString(node);
 			} else if (node.nodeType === Node.TEXT_NODE) {
@@ -521,9 +500,31 @@ function processContentBasedHighlight(
 	const paragraphs = Array.from(contentDiv.querySelectorAll("p"));
 	if (paragraphs.length) {
 		processContentParagraphs(paragraphs, tempDiv);
-	} else {
-		processInlineContent(innerContent, tempDiv);
+		return;
 	}
+
+	// For non-paragraph blocks (td, li, blockquote, etc.), match by
+	// element type to avoid false positives when the same text appears
+	// in a different element (e.g., "iPhone 16e" in a <p> AND a <td>).
+	const sourceRoot = contentDiv.firstElementChild;
+	const sourceTag = sourceRoot?.tagName?.toLowerCase();
+	if (sourceTag && sourceTag !== 'p') {
+		const searchText = normalizeText(highlight.content);
+		const candidates = Array.from(tempDiv.querySelectorAll(sourceTag));
+		for (const candidate of candidates) {
+			const candidateText = (candidate.textContent || '').replace(/\s+/g, ' ').trim();
+			if (candidateText === searchText) {
+				wrapElementWithMark(candidate);
+				return;
+			}
+			if (candidateText.includes(searchText)) {
+				processInlineContent(searchText, candidate as HTMLElement);
+				return;
+			}
+		}
+	}
+
+	processInlineContent(innerContent, tempDiv);
 }
 
 function processContentParagraphs(
@@ -551,7 +552,7 @@ function processContentParagraphs(
 	});
 }
 
-function processInlineContent(content: string, tempDiv: HTMLDivElement) {
+function processInlineContent(content: string, tempDiv: HTMLElement) {
 	const searchText = stripHtml(content).trim();
 	debugLog("Highlights", "Searching for text:", searchText);
 

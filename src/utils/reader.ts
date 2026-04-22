@@ -5,8 +5,24 @@ import { flattenShadowDom as flattenShadowDomUtil } from './flatten-shadow-dom';
 import { getLocalStorage, setLocalStorage } from './storage-utils';
 import hljs from 'highlight.js';
 import { getDomain } from './string-utils';
-import { applyHighlights, invalidateHighlightCache, loadHighlights, toggleHighlighterMenu, getHighlights, repositionHighlights } from './highlighter';
-import { removeExistingHighlights } from './highlighter-overlays';
+import type { HighlighterAPI } from './highlighter';
+import * as localHighlighter from './highlighter';
+import { removeExistingHighlights as localRemoveExistingHighlights } from './highlighter-overlays';
+
+// Bridge: on a live page with reader mode (case 2), content.js already loaded
+// and owns the highlighter module. reader-script.js delegates to it via this
+// window global to avoid two independent `highlights[]` arrays on the same
+// tab. On the standalone reader.html (case 3), no content.js exists — the
+// direct import is the only copy and serves as the fallback. Cached after
+// first resolution so the fallback spread doesn't re-allocate per call.
+let _hl: HighlighterAPI;
+function hl(): HighlighterAPI {
+	return _hl ??= window.__obsidianHighlighter ?? {
+		...localHighlighter,
+		removeExistingHighlights: localRemoveExistingHighlights,
+		ensureHighlighterCSS: () => Reader.ensureHighlighterCSS(document),
+	};
+}
 import { copyToClipboard } from './clipboard-utils';
 import { getMessage, initializeI18n } from './i18n';
 import { getFontCss } from './font-utils';
@@ -14,6 +30,7 @@ import { createMarkdownContent } from 'defuddle/full';
 import { saveFile } from './file-utils';
 import { parseForClip } from './clip-utils';
 import { updateSidebarWidth, addResizeHandle, cleanupResizeHandlers } from './iframe-resize';
+import { setElementHTML, setSVGChildren, serializeChildren } from './dom-utils';
 
 // Mobile viewport settings
 const VIEWPORT = 'width=device-width, initial-scale=1, maximum-scale=1';
@@ -198,14 +215,7 @@ export class Reader {
 		highlighterBtn.addEventListener('click', async () => {
 			clipDropdown.classList.remove('is-open');
 			settingsBar.classList.remove('is-open');
-			if (Reader.isReaderPage) {
-				toggleHighlighterMenu(!doc.body.classList.contains('obsidian-highlighter-active'));
-			} else {
-				const response = await browser.runtime.sendMessage({ action: 'getActiveTab' }) as { tabId?: number };
-				if (response.tabId) {
-					await browser.runtime.sendMessage({ action: 'toggleHighlighterMode', tabId: response.tabId });
-				}
-			}
+			await Reader.toggleHighlighter(doc);
 		});
 
 		// Sync active state with highlighter mode
@@ -233,7 +243,7 @@ export class Reader {
 		obsidianIcon.setAttribute('height', '18');
 		obsidianIcon.setAttribute('viewBox', '0 0 256 256');
 		obsidianIcon.setAttribute('fill', 'currentColor');
-		obsidianIcon.innerHTML = '<path d="M94.82 149.44c6.53-1.94 17.13-4.9 29.26-5.71a102.97 102.97 0 0 1-7.64-48.84c1.63-16.51 7.54-30.38 13.25-42.1l3.47-7.14 4.48-9.18c2.35-5 4.08-9.38 4.9-13.56.81-4.07.81-7.64-.2-11.11-1.03-3.47-3.07-7.14-7.15-11.21a17.02 17.02 0 0 0-15.8 3.77l-52.81 47.5a17.12 17.12 0 0 0-5.5 10.2l-4.5 30.18a149.26 149.26 0 0 1 38.24 57.2ZM54.45 106l-1.02 3.06-27.94 62.2a17.33 17.33 0 0 0 3.27 18.96l43.94 45.16a88.7 88.7 0 0 0 8.97-88.5A139.47 139.47 0 0 0 54.45 106Z"/><path d="m82.9 240.79 2.34.2c8.26.2 22.33 1.02 33.64 3.06 9.28 1.73 27.73 6.83 42.82 11.21 11.52 3.47 23.45-5.8 25.08-17.73 1.23-8.67 3.57-18.46 7.75-27.53a94.81 94.81 0 0 0-25.9-40.99 56.48 56.48 0 0 0-29.56-13.35 96.55 96.55 0 0 0-40.99 4.79 98.89 98.89 0 0 1-15.29 80.34h.1Z"/><path d="M201.87 197.76a574.87 574.87 0 0 0 19.78-31.6 8.67 8.67 0 0 0-.61-9.48 185.58 185.58 0 0 1-21.82-35.9c-5.91-14.16-6.73-36.08-6.83-46.69 0-4.07-1.22-8.05-3.77-11.21l-34.16-43.33c0 1.94-.4 3.87-.81 5.81a76.42 76.42 0 0 1-5.71 15.9l-4.7 9.8-3.36 6.72a111.95 111.95 0 0 0-12.03 38.23 93.9 93.9 0 0 0 8.67 47.92 67.9 67.9 0 0 1 39.56 16.52 99.4 99.4 0 0 1 25.8 37.31Z"/>';
+		setSVGChildren(obsidianIcon, '<path d="M94.82 149.44c6.53-1.94 17.13-4.9 29.26-5.71a102.97 102.97 0 0 1-7.64-48.84c1.63-16.51 7.54-30.38 13.25-42.1l3.47-7.14 4.48-9.18c2.35-5 4.08-9.38 4.9-13.56.81-4.07.81-7.64-.2-11.11-1.03-3.47-3.07-7.14-7.15-11.21a17.02 17.02 0 0 0-15.8 3.77l-52.81 47.5a17.12 17.12 0 0 0-5.5 10.2l-4.5 30.18a149.26 149.26 0 0 1 38.24 57.2ZM54.45 106l-1.02 3.06-27.94 62.2a17.33 17.33 0 0 0 3.27 18.96l43.94 45.16a88.7 88.7 0 0 0 8.97-88.5A139.47 139.47 0 0 0 54.45 106Z"/><path d="m82.9 240.79 2.34.2c8.26.2 22.33 1.02 33.64 3.06 9.28 1.73 27.73 6.83 42.82 11.21 11.52 3.47 23.45-5.8 25.08-17.73 1.23-8.67 3.57-18.46 7.75-27.53a94.81 94.81 0 0 0-25.9-40.99 56.48 56.48 0 0 0-29.56-13.35 96.55 96.55 0 0 0-40.99 4.79 98.89 98.89 0 0 1-15.29 80.34h.1Z"/><path d="M201.87 197.76a574.87 574.87 0 0 0 19.78-31.6 8.67 8.67 0 0 0-.61-9.48 185.58 185.58 0 0 1-21.82-35.9c-5.91-14.16-6.73-36.08-6.83-46.69 0-4.07-1.22-8.05-3.77-11.21l-34.16-43.33c0 1.94-.4 3.87-.81 5.81a76.42 76.42 0 0 1-5.71 15.9l-4.7 9.8-3.36 6.72a111.95 111.95 0 0 0-12.03 38.23 93.9 93.9 0 0 0 8.67 47.92 67.9 67.9 0 0 1 39.56 16.52 99.4 99.4 0 0 1 25.8 37.31Z"/>');
 		addToObsidianBtn.appendChild(obsidianIcon);
 		addToObsidianBtn.addEventListener('click', () => {
 			if (Reader.isReaderPage) {
@@ -960,7 +970,23 @@ export class Reader {
 
 		// Set up intersection observer for headings
 		const allHeadings = [titleHeading, ...headings].filter(Boolean) as Element[];
+
+		// Suppress observer until user scrolls — on initial load images
+		// haven't rendered yet so headings below the fold appear in-view.
+		let outlineReady = !!window.location.hash || window.scrollY > 0;
+		if (!outlineReady) {
+			if (allHeadings[0]) setActiveOutlineItem(allHeadings[0]);
+			const onFirstScroll = () => {
+				outlineReady = true;
+				window.removeEventListener('scroll', onFirstScroll);
+				Reader.outlineScrollHandler = null;
+			};
+			window.addEventListener('scroll', onFirstScroll, { passive: true });
+			Reader.outlineScrollHandler = onFirstScroll;
+		}
+
 		const observerCallback = (entries: IntersectionObserverEntry[]) => {
+			if (!outlineReady) return;
 			entries.forEach(entry => {
 				if (entry.isIntersecting) {
 					setActiveOutlineItem(entry.target);
@@ -1084,6 +1110,7 @@ export class Reader {
 	private static footnoteScrollHandler: (() => void) | null = null;
 	private static footnoteResizeHandler: (() => void) | null = null;
 	private static lightboxKeyHandler: ((e: KeyboardEvent) => void) | null = null;
+	private static outlineScrollHandler: (() => void) | null = null;
 	private static outlineMutationObservers: MutationObserver[] = [];
 
 	// Clean up event listeners and DOM elements from the previous page.
@@ -1093,6 +1120,10 @@ export class Reader {
 		if (this.observer) {
 			this.observer.disconnect();
 			this.observer = null;
+		}
+		if (this.outlineScrollHandler) {
+			window.removeEventListener('scroll', this.outlineScrollHandler);
+			this.outlineScrollHandler = null;
 		}
 		for (const obs of this.outlineMutationObservers) obs.disconnect();
 		this.outlineMutationObservers = [];
@@ -1126,7 +1157,7 @@ export class Reader {
 		doc.querySelector('.obsidian-reader-lightbox')?.remove();
 
 		// Highlights
-		removeExistingHighlights();
+		hl().removeExistingHighlights();
 	}
 
 	private static initializeFootnotes(doc: Document) {
@@ -2121,6 +2152,11 @@ export class Reader {
 			// Add reader classes and attributes
 			doc.documentElement.classList.add('obsidian-reader-active');
 
+			// Load the highlighter stylesheet. On a live page (case 2), this
+			// goes through content.js's bridge. On reader.html (case 3), the
+			// local implementation injects the <link> tag directly.
+			hl().ensureHighlighterCSS();
+
 			// Apply theme mode (sets theme-light/dark), then effective theme
 			this.updateThemeMode(doc, this.settings.appearance);
 
@@ -2144,7 +2180,7 @@ export class Reader {
 
 			// Re-activate highlighter if it was active before entering Reader
 			if (doc.body.classList.contains('obsidian-highlighter-active')) {
-				toggleHighlighterMenu(true);
+				hl().toggleHighlighterMenu(true);
 			}
 
 			// Re-attach the clipper iframe container only if it was
@@ -2153,18 +2189,22 @@ export class Reader {
 				doc.body.appendChild(clipperIframeContainer);
 			}
 
-			// Toggle dark mode with D key (visual only, doesn't change appearance setting)
-			doc.addEventListener('keydown', (e) => {
-				if (!this.isActive) return;
-				if ((e.key !== 'd' && e.key !== 'D') || e.ctrlKey || e.metaKey) return;
-				const tag = (document.activeElement as HTMLElement)?.tagName;
-				if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+			// D: toggle dark mode (visual only, doesn't change appearance setting)
+			Reader.registerHotkey(doc, 'd', () => {
 				const html = doc.documentElement;
 				const isDark = html.classList.contains('theme-dark');
 				html.classList.remove('theme-light', 'theme-dark');
 				html.classList.add(isDark ? 'theme-light' : 'theme-dark');
 				this.applyTheme(doc);
 			});
+
+			// H: toggle highlighter
+			Reader.registerHotkey(doc, 'h', () => Reader.toggleHighlighter(doc));
+
+			// Selection → highlight affordance. When highlighter is OFF and the
+			// user makes a normal text selection inside the article, surface a
+			// floating button that converts the selection into a highlight.
+			Reader.registerSelectionToHighlightButton(doc);
 
 			// Set up color scheme media query listener
 			this.colorSchemeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
@@ -2193,6 +2233,10 @@ export class Reader {
 			}
 
 			this.populateArticle(doc, main, article, { content, title, author, published, domain, wordCount, parseTime });
+
+			// Use the Defuddle-extracted title (article title only) instead of
+			// document.title (which often includes the site name suffix).
+			if (title) hl().setPageTitle(title);
 
 			// On YouTube, replace the Defuddle-generated iframe with the
 			// preserved native video element, or fall back to embed
@@ -2236,11 +2280,16 @@ export class Reader {
 						thumbnail.target = '_blank';
 						thumbnail.rel = 'noopener';
 						thumbnail.style.cssText = 'display:block;position:relative;aspect-ratio:16/9;max-width:100%;background:#000;border-radius:8px;overflow:hidden;';
-						thumbnail.innerHTML =
-							'<img src="https://img.youtube.com/vi/' + videoId + '/hqdefault.jpg" style="width:100%;height:100%;object-fit:cover;mix-blend-mode:normal!important;">'
-							+ '<svg style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:68px;height:48px;mix-blend-mode:normal!important;" viewBox="0 0 68 48">'
-							+ '<path d="M66.52 7.74c-.78-2.93-2.49-5.41-5.42-6.19C55.79.13 34 0 34 0S12.21.13 6.9 1.55c-2.93.78-4.63 3.26-5.42 6.19C.06 13.05 0 24 0 24s.06 10.95 1.48 16.26c.78 2.93 2.49 5.41 5.42 6.19C12.21 47.87 34 48 34 48s21.79-.13 27.1-1.55c2.93-.78 4.64-3.26 5.42-6.19C67.94 34.95 68 24 68 24s-.06-10.95-1.48-16.26z" fill="red"/>'
-							+ '<path d="M45 24L27 14v20" fill="white"/></svg>';
+						const thumbImg = doc.createElement('img');
+						thumbImg.src = 'https://img.youtube.com/vi/' + videoId + '/hqdefault.jpg';
+						thumbImg.style.cssText = 'width:100%;height:100%;object-fit:cover;mix-blend-mode:normal!important;';
+						const playSvg = doc.createElementNS('http://www.w3.org/2000/svg', 'svg');
+						playSvg.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:68px;height:48px;mix-blend-mode:normal!important;';
+						playSvg.setAttribute('viewBox', '0 0 68 48');
+						setSVGChildren(playSvg,
+							'<path d="M66.52 7.74c-.78-2.93-2.49-5.41-5.42-6.19C55.79.13 34 0 34 0S12.21.13 6.9 1.55c-2.93.78-4.63 3.26-5.42 6.19C.06 13.05 0 24 0 24s.06 10.95 1.48 16.26c.78 2.93 2.49 5.41 5.42 6.19C12.21 47.87 34 48 34 48s21.79-.13 27.1-1.55c2.93-.78 4.64-3.26 5.42-6.19C67.94 34.95 68 24 68 24s-.06-10.95-1.48-16.26z" fill="red"/>'
+							+ '<path d="M45 24L27 14v20" fill="white"/>');
+						thumbnail.replaceChildren(thumbImg, playSvg);
 						iframe.replaceWith(thumbnail);
 					} else {
 						await browser.runtime.sendMessage({
@@ -2263,12 +2312,7 @@ export class Reader {
 
 			// Store original article HTML before wireTranscript modifies
 			// the DOM (moves timestamps, wraps text, adds scrub track).
-			// Unwrap <span class="timestamp"> so Defuddle's markdown
-			// converter keeps the timestamp text inside <strong>.
-			const originalHtml = article.innerHTML.replace(
-				/<span class="timestamp"[^>]*>([^<]*)<\/span>/g, '$1'
-			);
-			article.setAttribute('data-original-html', originalHtml);
+			this.storeOriginalHtml(article);
 
 			wireTranscript(doc, article, this.settings, {
 				getStickyOffset: () => this.getStickyOffset(),
@@ -2309,6 +2353,114 @@ export class Reader {
 			await Promise.all(messages);
 			window.location.reload();
 		}
+	}
+
+	// Floating "Highlight" button that appears on text selection while
+	// highlighter is OFF, and converts the selection into a highlight. When
+	// highlighter is ON, the usual mouseup path in highlighter-overlays.ts
+	// handles selections directly, so we stay out of its way.
+	private static registerSelectionToHighlightButton(doc: Document) {
+		// Idempotent: if Reader.apply runs again without a page reload (e.g.
+		// SPA navigation where we re-enter reader), don't stack a second
+		// button + three more listeners on the same document.
+		if (doc.querySelector('.obsidian-selection-action')) return;
+		const btn = doc.createElement('button');
+		btn.type = 'button';
+		btn.className = 'obsidian-selection-action';
+		btn.setAttribute('aria-label', getMessage('highlightSelection'));
+		setElementHTML(btn, `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/></svg><span>${getMessage('highlightSelection')}</span>`);
+		btn.style.display = 'none';
+		// Preserve the selection when the pointer goes down on the button —
+		// otherwise the browser clears it before click handlers run.
+		btn.addEventListener('mousedown', e => e.preventDefault());
+		btn.addEventListener('click', (e) => {
+			e.preventDefault();
+			e.stopPropagation();
+			const sel = doc.getSelection();
+			if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
+			// Create the highlight without entering highlighter mode — the
+			// user's intent is a single edit, not a session. handleTextSelection
+			// reads the live selection and clears it on return.
+			hl().handleTextSelection(sel);
+			hide();
+		});
+		doc.body.appendChild(btn);
+
+		const hide = () => { btn.style.display = 'none'; };
+
+		const update = () => {
+			if (!this.isActive) return hide();
+			if (doc.body.classList.contains('obsidian-highlighter-active')) return hide();
+			const sel = doc.getSelection();
+			if (!sel || sel.isCollapsed || sel.rangeCount === 0) return hide();
+			const range = sel.getRangeAt(0);
+			const article = doc.querySelector('.obsidian-reader-content article');
+			if (!article || !article.contains(range.commonAncestorContainer)) return hide();
+			const rects = range.getClientRects();
+			if (rects.length === 0) return hide();
+			const last = rects[rects.length - 1];
+			btn.style.display = 'flex';
+			// Ensure the button stays within the viewport.
+			const btnWidth = btn.offsetWidth || 90;
+			const idealLeft = last.right + 2;
+			const clampedLeft = Math.min(idealLeft, window.innerWidth - btnWidth - 4);
+			btn.style.left = `${Math.max(4, clampedLeft) + window.scrollX}px`;
+			btn.style.top = `${last.bottom + window.scrollY - 6}px`;
+		};
+
+		// mouseup / keyup catch the end of a drag-select or shift-arrow select;
+		// selectionchange catches collapse-by-click so we can hide promptly.
+		doc.addEventListener('mouseup', () => setTimeout(update, 0));
+		doc.addEventListener('keyup', (e) => {
+			if (e.shiftKey || e.key === 'Shift') setTimeout(update, 0);
+		});
+		// selectionchange covers mobile (long-press + handles, no mouseup)
+		// and desktop keyboard selection (Ctrl+A, Shift+arrows). Debounced
+		// to avoid repositioning the button mid-drag on desktop.
+		let selChangeTimer: ReturnType<typeof setTimeout> | null = null;
+		doc.addEventListener('selectionchange', () => {
+			const sel = doc.getSelection();
+			if (!sel || sel.isCollapsed) {
+				if (selChangeTimer) { clearTimeout(selChangeTimer); selChangeTimer = null; }
+				hide();
+			} else {
+				if (selChangeTimer) clearTimeout(selChangeTimer);
+				selChangeTimer = setTimeout(update, 200);
+			}
+		});
+		window.addEventListener('resize', hide);
+	}
+
+	// Single-key hotkey wired to the reader document. Ignores presses while
+	// reader is inactive, while modifier keys are held, or while the user is
+	// typing in an input.
+	private static registerHotkey(doc: Document, key: string, handler: () => void) {
+		const lowerKey = key.toLowerCase();
+		doc.addEventListener('keydown', (e) => {
+			if (!this.isActive) return;
+			if (e.ctrlKey || e.metaKey || e.altKey) return;
+			if (e.key.toLowerCase() !== lowerKey) return;
+			const tag = (document.activeElement as HTMLElement)?.tagName;
+			if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+			handler();
+		});
+	}
+
+	// Inject highlighter.css for the standalone reader.html (case 3, no
+	// content.js). On live pages (case 2), hl() routes to content.js's
+	// Promise-cached version instead.
+	static ensureHighlighterCSS(doc: Document): void {
+		if (doc.getElementById('obsidian-highlighter-stylesheet')) return;
+		const link = doc.createElement('link');
+		link.id = 'obsidian-highlighter-stylesheet';
+		link.rel = 'stylesheet';
+		link.href = browser.runtime.getURL('highlighter.css');
+		(doc.head || doc.documentElement).appendChild(link);
+	}
+
+	static toggleHighlighter(doc: Document): void {
+		const willBeActive = !doc.body.classList.contains('obsidian-highlighter-active');
+		hl().toggleHighlighterMenu(willBeActive);
 	}
 
 	static async toggle(doc: Document): Promise<boolean> {
@@ -2452,6 +2604,14 @@ export class Reader {
 
 	// Wrap each <table> in a scroll container so wide tables can scroll
 	// horizontally on mobile without blowing out the article width.
+	private static storeOriginalHtml(article: Element): void {
+		const clone = article.cloneNode(true) as Element;
+		clone.querySelectorAll('span.timestamp').forEach(span => {
+			span.replaceWith(span.textContent || '');
+		});
+		article.setAttribute('data-original-html', serializeChildren(clone));
+	}
+
 	private static wrapTables(doc: Document) {
 		const tables = doc.querySelectorAll('article table');
 		tables.forEach(table => {
@@ -2480,9 +2640,9 @@ export class Reader {
 		this.initializeComments(doc);
 		this.initializeFollowLinks(doc);
 
-		invalidateHighlightCache();
-		await loadHighlights();
-		applyHighlights();
+		hl().invalidateHighlightCache();
+		await hl().loadHighlights();
+		hl().applyHighlights();
 	}
 
 	private static async getHighlightCountForDomain(domain: string): Promise<number> {
@@ -2524,11 +2684,7 @@ export class Reader {
 			}
 		}
 
-		// Unwrap timestamp spans so markdown conversion keeps the text inside <strong>
-		const originalHtml = article.innerHTML.replace(
-			/<span class="timestamp"[^>]*>([^<]*)<\/span>/g, '$1'
-		);
-		article.setAttribute('data-original-html', originalHtml);
+		this.storeOriginalHtml(article);
 
 		wireTranscript(doc, article, this.settings, {
 			getStickyOffset: () => this.getStickyOffset(),
@@ -2555,7 +2711,7 @@ export class Reader {
 			cleanupResizeHandlers(doc);
 			existing.addEventListener('animationend', () => {
 				existing.remove();
-				repositionHighlights();
+				hl().repositionHighlights();
 			}, { once: true });
 			return;
 		}
@@ -2576,8 +2732,8 @@ export class Reader {
 		container.appendChild(iframe);
 
 		const resizeCallbacks = {
-			onResize: () => repositionHighlights(),
-			onResizeEnd: () => repositionHighlights(),
+			onResize: () => hl().repositionHighlights(),
+			onResizeEnd: () => hl().repositionHighlights(),
 		};
 		addResizeHandle(doc, container, 'w', resizeCallbacks);
 		addResizeHandle(doc, container, 's', resizeCallbacks);
@@ -2585,7 +2741,7 @@ export class Reader {
 
 		doc.body.appendChild(container);
 		updateSidebarWidth(doc, container);
-		container.addEventListener('animationend', () => repositionHighlights(), { once: true });
+		container.addEventListener('animationend', () => hl().repositionHighlights(), { once: true });
 	}
 
 	static copyMarkdownOnReaderPage(doc: Document): void {
